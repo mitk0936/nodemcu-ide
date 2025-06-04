@@ -1,0 +1,71 @@
+{
+  "name": "NodemcuIDE",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "dist-electron/electron.js",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"npm:dev:main\"",
+    "dev:main": "npm run build:main:watch & wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electronmon --inspect=9229 dist-electron/electron.js --watch dist-electron",
+    "build": "npm run build:main && vite build && electron-builder",
+    "build:main": "tsc -p tsconfig.electron.json; tsc -p tsconfig.preload.json",
+    "build:main:watch": "tsc -p tsconfig.electron.json --watch | tsc -p tsconfig.preload.json --watch",
+    "lint": "eslint .",
+    "postinstall": "electron-builder install-app-deps && sudo chown root node_modules/electron/dist/chrome-sandbox && sudo chmod 4755 node_modules/electron/dist/chrome-sandbox"
+  },
+  "build": {
+    "appId": "nodemcu.ide",
+    "files": [
+      "dist/",
+      "dist-electron/"
+    ],
+    "directories": {
+      "buildResources": "public"
+    }
+  },
+  "dependencies": {
+    "@radix-ui/react-context-menu": "^2.2.15",
+    "@radix-ui/react-dialog": "^1.1.14",
+    "@radix-ui/react-dropdown-menu": "^2.1.15",
+    "@radix-ui/react-label": "^2.1.7",
+    "@radix-ui/react-select": "^2.2.5",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tabs": "^1.1.12",
+    "@radix-ui/react-toast": "^1.2.14",
+    "@serialport/bindings-interface": "^1.2.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.511.0",
+    "nodemcu-tool": "^3.2.1",
+    "react": "^19.1.0",
+    "react-console-emulator": "^5.0.2",
+    "react-dom": "^19.1.0",
+    "react-terminal": "^1.4.5",
+    "serialport": "^13.0.0",
+    "tailwind-merge": "^3.3.0",
+    "tailwind-scrollbar": "^3.1.0",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.25.0",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.4.1",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^36.3.1",
+    "electron-builder": "^26.0.12",
+    "electronmon": "^2.0.3",
+    "eslint": "^9.25.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^16.0.0",
+    "postcss": "^8.5.4",
+    "tailwindcss": "^3.4.1",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.30.1",
+    "vite": "^6.3.5",
+    "wait-on": "^8.0.3"
+  }
+}
