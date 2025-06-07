@@ -9,41 +9,83 @@ import {
 import { useConnectedBoards } from "../hooks/useConnectedBoards";
 import { useFormatBoards } from "../hooks/useFormatBoard";
 import { ConfirmActionButton } from "@/components/composite/confirm-action-button";
-import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useCallback, useEffect, useState } from "react";
+import { Cable, Loader2, RotateCcwIcon, UnplugIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { BAUD_RATES } from "../../../../main/common/constants";
+import type { PortConnection } from "src/main/types";
+import { useResetBoard } from "../hooks/useResetBoard";
+import { Button } from "@/components/ui/button";
 
 export default function BoardActionsContainer() {
   const { toast } = useToast();
+
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [boardConnected, setBoardConnected] = useState(false);
 
   const [selectedBoardPath, setSelectedBoardPath] = useState<string | null>(
     null
   );
 
   const [selectedBaudRate, setSelectedBaudRate] = useState(BAUD_RATES[0]);
-
-  const [boardError, setBoardError] = useState(false);
   const { boards } = useConnectedBoards();
+
+  const { resetBoard, isLoading: isResettingBoard } = useResetBoard();
+
   const { formatBoard, isLoading: isFormattingBoard } = useFormatBoards({
     onError: () =>
-      toast({ title: "Failed to format the board.", variant: "destructive" }),
-    onSuccess: () => toast({ title: "Board formatted successfully." }),
+      toast({
+        title: "Failed to format the board.",
+        variant: "destructive",
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Board formatted successfully.",
+      });
+      connectToBoard();
+    },
   });
 
-  useEffect(() => {
+  const handleDataReceivedFromPort = useCallback(
+    (connection: PortConnection) => {
+      if (connection.path !== selectedBoardPath) {
+        setSelectedBoardPath(connection.path);
+      }
+
+      if (connection.baudRate !== selectedBaudRate) {
+        setSelectedBaudRate(connection.baudRate);
+      }
+    },
+    [selectedBoardPath, selectedBaudRate]
+  );
+
+  const connectToBoard = useCallback(async () => {
     if (selectedBaudRate && selectedBoardPath) {
-      window.api.connectToBoard(selectedBoardPath, selectedBaudRate);
+      setIsConnecting(true);
+      window.api.once("portOpened", () => setIsConnecting(false));
+      await window.api.connectToBoard(selectedBoardPath, selectedBaudRate);
     }
   }, [selectedBaudRate, selectedBoardPath]);
 
-  const executingProcess = Boolean(isFormattingBoard);
+  useEffect(() => {
+    const { on } = window.api;
 
-  const selectBoardClasses = cn(
-    "w-full",
-    boardError && "border-red-500 focus:ring-red-500"
+    const subsribers = [
+      on("portOpened", handleDataReceivedFromPort),
+      on("serialData", handleDataReceivedFromPort),
+      on("portOpened", () => setBoardConnected(true)),
+      on("portErrorOccured", () => setBoardConnected(false)),
+      on("portClosed", () => setBoardConnected(false)),
+    ];
+
+    return () => {
+      subsribers.forEach((unsub) => unsub());
+    };
+  }, []);
+
+  const isExecutingProcessOnBoard = Boolean(
+    isConnecting || isFormattingBoard || isResettingBoard
   );
 
   return (
@@ -52,13 +94,13 @@ export default function BoardActionsContainer() {
         <Label htmlFor="board">Board</Label>
         <Select
           name="board"
-          disabled={executingProcess}
+          value={selectedBoardPath || ""}
+          disabled={boardConnected || isExecutingProcessOnBoard}
           onValueChange={(boardPath) => {
-            setBoardError(false);
             setSelectedBoardPath(boardPath);
           }}
         >
-          <SelectTrigger className={selectBoardClasses}>
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="Choose board" />
           </SelectTrigger>
           <SelectContent>
@@ -77,8 +119,8 @@ export default function BoardActionsContainer() {
         <Label htmlFor="baud">Baud Rate</Label>
         <Select
           name="baud"
-          defaultValue={String(selectedBaudRate)}
-          disabled={executingProcess}
+          value={String(selectedBaudRate)}
+          disabled={boardConnected || isExecutingProcessOnBoard}
           onValueChange={(baudRate) => {
             setSelectedBaudRate(parseInt(baudRate, 10));
           }}
@@ -95,35 +137,70 @@ export default function BoardActionsContainer() {
           </SelectContent>
         </Select>
       </div>
+      <div className="mb-2">
+        <Button
+          disabled={
+            !selectedBoardPath || boardConnected || isExecutingProcessOnBoard
+          }
+          variant="default"
+          onClick={async () => {
+            if (selectedBoardPath) {
+              await resetBoard(selectedBoardPath);
+            }
+          }}
+          className="w-full"
+        >
+          <RotateCcwIcon /> Reset
+        </Button>
+      </div>
+      <div className="mb-6">
+        <Button
+          disabled={!selectedBoardPath || isExecutingProcessOnBoard}
+          variant="default"
+          onClick={() => {
+            if (boardConnected) {
+              return window.api.disconnectBoard();
+            }
+
+            connectToBoard();
+          }}
+          className="w-full"
+        >
+          {isConnecting ? (
+            <>
+              <Loader2 className="animate-spin" />
+              Connecting...
+            </>
+          ) : (
+            <>
+              {boardConnected ? <UnplugIcon /> : <Cable />}
+              {boardConnected ? "Disconnect" : "Connect"}
+            </>
+          )}
+        </Button>
+      </div>
+      <Label>Board Actions</Label>
       <Tabs defaultValue="upload" className="justify-center">
         <TabsList className="w-full">
           <TabsTrigger
             className="flex-1"
-            value="upload"
-            disabled={executingProcess}
-          >
-            Upload
-          </TabsTrigger>
-          <TabsTrigger
-            className="flex-1"
             value="flash"
-            disabled={executingProcess}
+            disabled={isExecutingProcessOnBoard}
           >
             Flash
           </TabsTrigger>
           <TabsTrigger
             className="flex-1"
             value="format"
-            disabled={executingProcess}
+            disabled={isExecutingProcessOnBoard}
           >
             Format
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="upload">Upload</TabsContent>
         <TabsContent value="flash">Flash</TabsContent>
         <TabsContent value="format" className="w-full flex justify-center mt-2">
           <ConfirmActionButton
-            disabled={isFormattingBoard}
+            disabled={!selectedBoardPath || isFormattingBoard}
             openerLabel={
               isFormattingBoard ? (
                 <>
@@ -135,16 +212,10 @@ export default function BoardActionsContainer() {
               )
             }
             confirmationLabel="Are you sure you want to format the connected board?"
-            onConfirm={() => {
-              if (!selectedBoardPath) {
-                toast({
-                  title: "No board is selected.",
-                  variant: "destructive",
-                });
-                return setBoardError(true);
+            onConfirm={async () => {
+              if (selectedBoardPath) {
+                await formatBoard(selectedBoardPath);
               }
-
-              formatBoard(selectedBoardPath);
             }}
           />
         </TabsContent>

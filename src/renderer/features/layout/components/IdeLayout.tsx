@@ -25,7 +25,7 @@ export default function IdeLayout() {
   });
 
   return (
-    <div className="flex h-screen w-screen user-select-none">
+    <div className="flex h-screen w-screen">
       {/* Left pane */}
       <div
         ref={leftPaneRef}
@@ -55,7 +55,7 @@ export default function IdeLayout() {
       ></div>
 
       {/* Right pane */}
-      <div className="flex flex-col flex-1 bg-gray-100">
+      <div className="flex flex-col flex-1 max-w-full bg-gray-100">
         {/* Top: Code editor */}
         <div
           ref={codeEditorPaneRef}
@@ -71,7 +71,7 @@ export default function IdeLayout() {
         ></div>
 
         {/* Bottom: Console */}
-        <div className="flex flex-1 min-h-[200px] w-full h-full">
+        <div className="flex flex-1 min-h-[200px] max-w-[100%] w-full h-full break-all">
           <Terminal />
         </div>
       </div>

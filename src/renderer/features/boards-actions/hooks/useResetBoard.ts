@@ -5,12 +5,12 @@ type Options = {
   onSuccess?: () => void;
 };
 
-export function useFormatBoards({ onError, onSuccess }: Options = {}) {
+export function useResetBoard({ onError, onSuccess }: Options = {}) {
   const [isLoading, setIsLoading] = useState(false);
-  const formatBoard = useCallback(async (path: string) => {
+  const resetBoard = useCallback(async (path: string) => {
     setIsLoading(true);
 
-    const { error, data } = await window.api.formatBoard(path);
+    const { error, data } = await window.api.resetBoard(path);
 
     error && onError?.(error);
     data && onSuccess?.();
@@ -19,7 +19,7 @@ export function useFormatBoards({ onError, onSuccess }: Options = {}) {
   }, []);
 
   return {
-    formatBoard,
+    resetBoard,
     isLoading,
   };
 }
