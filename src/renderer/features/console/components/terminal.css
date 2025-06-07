@@ -1,3 +1,7 @@
+.terminal-container {
+  max-width: 100%;
+  line-break: anywhere;
+}
 .terminal-container > * {
   flex: 1;
 }

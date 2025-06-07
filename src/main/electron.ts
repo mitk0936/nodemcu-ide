@@ -1,54 +1,44 @@
-import { app } from "electron";
+import { app, protocol } from "electron";
 import { createWindow } from "./features/browser-init/createWindow.js";
 import { initInBrowserNavigation } from "./features/browser-init/initInBrowserNavigation.js";
 import { listBoards } from "./features/serialport-communication/handlers/listBoards.js";
 
-import { ipcMainHandle, ipcMainSend } from "./ipc.js";
+import { ipcMainHandle } from "./ipc.js";
 import { formatBoard } from "./features/serialport-communication/handlers/formatBoard.js";
-import { connectToBoard } from "./features/serialport-communication/handlers/connectToBoard.js";
-import SerialPortConnectionService from "./features/serialport-communication/services/SerialPortConnectionService.js";
-import { RenderToMainEvents } from "./types.js";
+import NodemcuToolTerminalService from "./features/serialport-communication/services/NodemcuToolTerminalService.js";
+import { resetBoard } from "./features/serialport-communication/handlers/resetBoard.js";
+import { handleBoardCmdStd } from "./features/serialport-communication/utils/handleBoardCmdStd.js";
+import { initSerialPortEventHandlers } from "./features/serialport-communication/utils/initSerialPortEventHandlers.js";
+import { listDevices } from "./features/serialport-communication/handlers/listDevices.js";
 
 // Listen for main app ready
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   initInBrowserNavigation(app);
+  const window = await createWindow();
+
+  initSerialPortEventHandlers(window);
 
   // register ipcMain hanlders
-  ipcMainHandle("getBoards", listBoards);
-  ipcMainHandle("formatBoard", formatBoard);
-  ipcMainHandle("connectToBoard", connectToBoard);
+  ipcMainHandle("getBoards", listDevices);
 
-  const window = createWindow();
+  ipcMainHandle("connectToBoard", async (path: string, baudRate: number) => {
+    await NodemcuToolTerminalService.disconnect();
+    await NodemcuToolTerminalService.connect(path, baudRate);
+    return Promise.resolve({ error: null, data: true });
+  });
 
-  SerialPortConnectionService.eventEmitter.on(
-    "data",
-    (payload: RenderToMainEvents["serialData"]) => {
-      console.log(payload.text);
-      ipcMainSend("serialData", window.webContents, payload);
-    }
-  );
+  ipcMainHandle("resetBoard", async (path: string) => {
+    await NodemcuToolTerminalService.disconnect();
+    return resetBoard(path, handleBoardCmdStd(path, window));
+  });
 
-  SerialPortConnectionService.eventEmitter.on(
-    "portOpened",
-    (payload: RenderToMainEvents["portOpened"]) =>
-      ipcMainSend("portOpened", window.webContents, payload)
-  );
+  ipcMainHandle("formatBoard", async (path: string) => {
+    await NodemcuToolTerminalService.disconnect();
+    return formatBoard(path, handleBoardCmdStd(path, window));
+  });
 
-  SerialPortConnectionService.eventEmitter.on(
-    "portClosed",
-    (payload: RenderToMainEvents["portClosed"]) => {
-      ipcMainSend("portClosed", window.webContents, payload);
-    }
-  );
-
-  SerialPortConnectionService.eventEmitter.on(
-    "portErrorOccured",
-    (payload: RenderToMainEvents["portErrorOccured"]) => {
-      ipcMainSend("portErrorOccured", window.webContents, payload);
-    }
-  );
-
-  app.on("window-all-closed", () => {
-    app.quit();
+  ipcMainHandle("disconnectBoard", async () => {
+    await NodemcuToolTerminalService.disconnect();
+    return Promise.resolve({ error: null, data: true });
   });
 });

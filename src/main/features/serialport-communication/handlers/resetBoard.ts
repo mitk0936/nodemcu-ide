@@ -15,26 +15,20 @@ const nodemcuToolPath = path.resolve(
   process.platform === "win32" ? "nodemcu-tool.cmd" : "nodemcu-tool"
 );
 
-type FormatBoardParams = {
+type ResetBoardParams = {
   onData: (d: string) => void;
   onError: (e: string) => void;
 };
 
-export async function formatBoard(
+export async function resetBoard(
   path: string,
-  { onData, onError }: FormatBoardParams
-): ReturnType<RendererToMainMethods["formatBoard"]> {
+  { onData, onError }: ResetBoardParams
+): ReturnType<RendererToMainMethods["resetBoard"]> {
   const { error } = await tryCatch(
     new Promise<void>((resolve, reject) => {
       const child = execFile(
         nodemcuToolPath,
-        [
-          "mkfs",
-          `--port=${path}`,
-          "--connection-delay",
-          "500",
-          "--noninteractive",
-        ],
+        ["reset", `--port=${path}`],
         (err, _, stderr) => {
           if (err) {
             return reject(stderr);
@@ -51,7 +45,7 @@ export async function formatBoard(
 
   if (error) {
     return {
-      error: `An error occured, while trying to format the board (${path}). ${error}`,
+      error: `An error occured, while trying to reset the board (${path}). ${error}`,
       data: null,
     };
   }

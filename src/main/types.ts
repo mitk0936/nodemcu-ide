@@ -1,9 +1,9 @@
 type EventCallback<Payload> = (p: Payload) => void;
 
 type Unsubscribe = () => void;
-export type EventSubscriber = <E extends keyof RenderToMainEvents>(
+export type EventSubscriber = <E extends keyof MainToRendererEvents>(
   event: E,
-  callback: EventCallback<RenderToMainEvents[E]>
+  callback: EventCallback<MainToRendererEvents[E]>
 ) => Unsubscribe;
 
 export type RendererToMainRequests = RendererToMainMethods & {
@@ -20,12 +20,16 @@ export type PortConnection = {
   baudRate: number;
 };
 
+export type BoardStd = {
+  path: string;
+  type: "output" | "error";
+  text: string;
+};
+
 export type PortInfo = {
   path: string;
   manufacturer: string | undefined;
-  serialNumber: string | undefined;
   pnpId: string | undefined;
-  locationId: string | undefined;
   productId: string | undefined;
   vendorId: string | undefined;
 };
@@ -33,10 +37,15 @@ export type PortInfo = {
 export interface RendererToMainMethods {
   getBoards: () => MainMethodResponse<Array<PortInfo>>;
   formatBoard: (path: string) => MainMethodResponse<boolean>;
-  connectToBoard: (path: string, baudRate?: number) => void;
+  connectToBoard: (
+    path: string,
+    baudRate: number
+  ) => MainMethodResponse<boolean>;
+  resetBoard: (path: string) => MainMethodResponse<boolean>;
+  disconnectBoard: () => MainMethodResponse<boolean>;
 }
 
-export interface RenderToMainEvents {
+export interface MainToRendererEvents {
   serialData: PortConnection & {
     text: string;
   };
@@ -45,4 +54,5 @@ export interface RenderToMainEvents {
   portErrorOccured: PortConnection & {
     error: string;
   };
+  boardStd: BoardStd;
 }
