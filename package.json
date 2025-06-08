@@ -6,21 +6,29 @@
   "main": "dist-electron/electron.js",
   "scripts": {
     "dev": "concurrently \"vite\" \"npm:dev:main\"",
-    "dev:main": "npm run build:main:watch & wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electronmon --inspect=9229 dist-electron/electron.js --watch dist-electron",
-    "build": "npm run build:main && vite build && electron-builder",
+    "dev:main": "npm run copy:icons | npm run build:main:watch & wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electronmon --inspect=9229 dist-electron/electron.js --watch dist-electron build",
+    "build": "npm run copy:icons | npm run build:main && vite build && electron-builder",
     "build:main": "tsc -p tsconfig.electron.json; tsc -p tsconfig.preload.json",
     "build:main:watch": "tsc -p tsconfig.electron.json --watch | tsc -p tsconfig.preload.json --watch",
+    "copy:icons": "mkdir -p dist-electron/build && cp -r build/icons dist-electron/build",
     "lint": "eslint .",
     "postinstall": "electron-builder install-app-deps && sudo chown root node_modules/electron/dist/chrome-sandbox && sudo chmod 4755 node_modules/electron/dist/chrome-sandbox"
   },
   "build": {
     "appId": "nodemcu.ide",
     "files": [
-      "dist/",
-      "dist-electron/"
+      "dist/**/*",
+      "dist-electron/**/*",
+      "build/**/*"
     ],
     "directories": {
-      "buildResources": "public"
+      "buildResources": "build"
+    },
+    "linux": {
+      "icon": "icons",
+      "target": [
+        "AppImage"
+      ]
     }
   },
   "dependencies": {
@@ -53,9 +61,9 @@
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
-    "electron": "^36.3.1",
-    "electron-builder": "^26.0.12",
-    "electronmon": "^2.0.3",
+    "electron": "35.5.1",
+    "electron-builder": "26.0.12",
+    "electronmon": "2.0.3",
     "eslint": "^9.25.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
