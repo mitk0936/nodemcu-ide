@@ -180,7 +180,7 @@ export default function BoardActionsContainer() {
         </Button>
       </div>
       <Label>Board Actions</Label>
-      <Tabs defaultValue="upload" className="justify-center">
+      <Tabs defaultValue="format" className="justify-center">
         <TabsList className="w-full">
           <TabsTrigger
             className="flex-1"
@@ -211,7 +211,7 @@ export default function BoardActionsContainer() {
                 "Format Board"
               )
             }
-            confirmationLabel="Are you sure you want to format the connected board?"
+            confirmationLabel={`Are you sure you want to format the selected board - ${selectedBoardPath} ?`}
             onConfirm={async () => {
               if (selectedBoardPath) {
                 await formatBoard(selectedBoardPath);

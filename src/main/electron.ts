@@ -1,7 +1,6 @@
-import { app, protocol } from "electron";
+import { app } from "electron";
 import { createWindow } from "./features/browser-init/createWindow.js";
 import { initInBrowserNavigation } from "./features/browser-init/initInBrowserNavigation.js";
-import { listBoards } from "./features/serialport-communication/handlers/listBoards.js";
 
 import { ipcMainHandle } from "./ipc.js";
 import { formatBoard } from "./features/serialport-communication/handlers/formatBoard.js";
@@ -10,6 +9,8 @@ import { resetBoard } from "./features/serialport-communication/handlers/resetBo
 import { handleBoardCmdStd } from "./features/serialport-communication/utils/handleBoardCmdStd.js";
 import { initSerialPortEventHandlers } from "./features/serialport-communication/utils/initSerialPortEventHandlers.js";
 import { listDevices } from "./features/serialport-communication/handlers/listDevices.js";
+
+app.setName("NodemcuIDE");
 
 // Listen for main app ready
 app.whenReady().then(async () => {

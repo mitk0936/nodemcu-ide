@@ -1,9 +1,10 @@
-import { protocol } from "electron";
+import { app, protocol } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { BrowserWindow } from "electron";
 import { readFile } from "node:fs/promises";
 import { lookup as getMimeType } from "mime-types";
+import { existsSync } from "node:fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,6 +12,15 @@ const __dirname = path.dirname(__filename);
 protocol.registerSchemesAsPrivileged([
   { scheme: "app", privileges: { secure: true, standard: true } },
 ]);
+
+let iconPath: string;
+
+if (app.isPackaged) {
+  iconPath = path.join(process.resourcesPath, "build", "icons", "256x256.png");
+} else {
+  // Example: if __dirname is <repo>/dist-electron/main/features/browser-init
+  iconPath = path.resolve(__dirname, "../../build/icons/256x256.png");
+}
 
 export const createWindow = async () => {
   protocol.handle("app", async (request) => {
@@ -50,6 +60,7 @@ export const createWindow = async () => {
       nodeIntegration: false,
       sandbox: true,
     },
+    icon: iconPath,
   });
 
   win.loadURL(process.env.VITE_DEV_SERVER_URL || "app://-");
