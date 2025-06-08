@@ -1,3 +1,4 @@
+import { Cable, Loader2, RotateCcwIcon, UnplugIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -10,7 +11,6 @@ import { useConnectedBoards } from "../hooks/useConnectedBoards";
 import { useFormatBoards } from "../hooks/useFormatBoard";
 import { ConfirmActionButton } from "@/components/composite/confirm-action-button";
 import { useCallback, useEffect, useState } from "react";
-import { Cable, Loader2, RotateCcwIcon, UnplugIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import { BAUD_RATES } from "../../../../main/common/constants";
