@@ -40,6 +40,8 @@ const api: RendererToMainRequests = {
   connectToBoard: (...args) => ipcRenderer.invoke("connectToBoard", ...args),
   resetBoard: (...args) => ipcRenderer.invoke("resetBoard", ...args),
   disconnectBoard: (...args) => ipcRenderer.invoke("disconnectBoard", ...args),
+  pickSourceFolder: (...args) =>
+    ipcRenderer.invoke("pickSourceFolder", ...args),
   on: subscriber("on"),
   once: subscriber("once"),
 };

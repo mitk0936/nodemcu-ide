@@ -7,6 +7,8 @@ import { tryCatch } from "../../../common/try-catch.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const nodePath = "/home/dimitar/.nvm/versions/node/v22.13.0/bin/node";
+
 const nodemcuToolPath = path.resolve(
   __dirname,
   "../../../../",
@@ -27,8 +29,9 @@ export async function formatBoard(
   const { error } = await tryCatch(
     new Promise<void>((resolve, reject) => {
       const child = execFile(
-        nodemcuToolPath,
+        nodePath,
         [
+          nodemcuToolPath,
           "mkfs",
           `--port=${path}`,
           "--connection-delay",

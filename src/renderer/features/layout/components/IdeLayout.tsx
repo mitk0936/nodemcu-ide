@@ -3,6 +3,7 @@ import { useHorizontalResize } from "../hooks/useHorizontalResize";
 import { useVerticalResize } from "../hooks/useVerticalResize";
 import BoardActionsContainer from "@/features/boards-actions/components/BoardActionsContainer";
 import Terminal from "@/features/console/components/Terminal";
+import FolderView from "@/features/file-explorer/components/FolderView";
 
 export default function IdeLayout() {
   const leftPaneRef = useRef<HTMLDivElement>(null);
@@ -32,8 +33,11 @@ export default function IdeLayout() {
         className="flex flex-col bg-gray-800 text-white w-64 min-w-[3rem] overflow-hidden"
       >
         {/* Top: File explorer */}
-        <div ref={fileExplorerPaneRef} className="h-[600px] p-2 bg-gray-900">
-          <p className="text-sm font-bold">File Explorer</p>
+        <div
+          ref={fileExplorerPaneRef}
+          className="h-[600px] p-2 bg-gray-900 overflow-auto scroll-box"
+        >
+          <FolderView />
         </div>
 
         {/* Divider for resizing */}

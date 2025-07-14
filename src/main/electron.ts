@@ -9,6 +9,7 @@ import { resetBoard } from "./features/serialport-communication/handlers/resetBo
 import { handleBoardCmdStd } from "./features/serialport-communication/utils/handleBoardCmdStd.js";
 import { initSerialPortEventHandlers } from "./features/serialport-communication/utils/initSerialPortEventHandlers.js";
 import { listDevices } from "./features/serialport-communication/handlers/listDevices.js";
+import { pickSourceFolder } from "./features/file-explorer/handlers/pickSourceFolder.js";
 
 app.setName("NodemcuIDE");
 
@@ -19,7 +20,7 @@ app.whenReady().then(async () => {
 
   initSerialPortEventHandlers(window);
 
-  // register ipcMain hanlders
+  // Board Actions Handlers
   ipcMainHandle("getBoards", listDevices);
 
   ipcMainHandle("connectToBoard", async (path: string, baudRate: number) => {
@@ -42,4 +43,12 @@ app.whenReady().then(async () => {
     await NodemcuToolTerminalService.disconnect();
     return Promise.resolve({ error: null, data: true });
   });
+
+  // File Explorer Actions
+  ipcMainHandle("pickSourceFolder", pickSourceFolder);
 });
+
+console.log("🧪 Runtime Check:");
+console.log("process.versions.electron:", process.versions.electron);
+console.log("process.versions.node:", process.versions.node);
+console.log("process.versions.modules:", process.versions.modules);

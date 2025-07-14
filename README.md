@@ -150,6 +150,11 @@ git push origin feature-name
 
 5. Open a pull request.
 
+## Quirks
+
+In case of issues with serialport and mismatching versions
+Run: `npm rebuild @serialport/bindings --update-binary`
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

@@ -63,6 +63,54 @@ export const createWindow = async () => {
     icon: iconPath,
   });
 
+  win.webContents.session.on(
+    "select-serial-port",
+    (event, portList, webContents, callback) => {
+      // Add listeners to handle ports being added or removed before the callback for `select-serial-port`
+      // is called.
+      win.webContents.session.on("serial-port-added", (event, port) => {
+        console.log("serial-port-added FIRED WITH", port);
+        // Optionally update portList to add the new port
+      });
+
+      win.webContents.session.on("serial-port-removed", (event, port) => {
+        console.log("serial-port-removed FIRED WITH", port);
+        // Optionally update portList to remove the port
+      });
+
+      console.log(portList);
+
+      const ports = portList.filter((p) => Boolean(p.productId));
+
+      event.preventDefault();
+      if (ports && ports.length > 0) {
+        callback(ports[0].portId);
+      } else {
+        // eslint-disable-next-line n/no-callback-literal
+        callback(""); // Could not find any matching devices
+      }
+    }
+  );
+
+  win.webContents.session.setDevicePermissionHandler((details) => {
+    if (details.deviceType === "serial") {
+      return true;
+    }
+
+    return false;
+  });
+
+  win.webContents.session.setPermissionCheckHandler(
+    (__webContents, permission, requestingOrigin, details) => {
+      return permission === "serial";
+      return Boolean(
+        (permission === "serial" && details.securityOrigin === "app://-") ||
+          (!app.isPackaged &&
+            requestingOrigin === process.env.VITE_DEV_SERVER_URL)
+      );
+    }
+  );
+
   win.loadURL(process.env.VITE_DEV_SERVER_URL || "app://-");
 
   return win;

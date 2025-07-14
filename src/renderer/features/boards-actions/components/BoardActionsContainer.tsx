@@ -17,6 +17,9 @@ import { BAUD_RATES } from "../../../../main/common/constants";
 import type { PortConnection } from "src/main/types";
 import { useResetBoard } from "../hooks/useResetBoard";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { openSerialPort } from "../handlers/connectToBoard";
+import { connectAndLog } from "../handlers/connectToBoardEsptool";
 
 export default function BoardActionsContainer() {
   const { toast } = useToast();
@@ -29,7 +32,7 @@ export default function BoardActionsContainer() {
   );
 
   const [selectedBaudRate, setSelectedBaudRate] = useState(BAUD_RATES[0]);
-  const { boards } = useConnectedBoards();
+  const { boards, error: errorGettingBoards } = useConnectedBoards();
 
   const { resetBoard, isLoading: isResettingBoard } = useResetBoard();
 
@@ -88,9 +91,17 @@ export default function BoardActionsContainer() {
     isConnecting || isFormattingBoard || isResettingBoard
   );
 
+  const boardsSelectClasses = cn(
+    "w-full",
+    errorGettingBoards && "text-red-400 border-red-400"
+  );
+
   return (
     <>
       <div className="mb-2">
+        <button onClick={() => connectAndLog().then(console.log)}>
+          Connect Test
+        </button>
         <Label htmlFor="board">Board</Label>
         <Select
           name="board"
@@ -100,10 +111,15 @@ export default function BoardActionsContainer() {
             setSelectedBoardPath(boardPath);
           }}
         >
-          <SelectTrigger className="w-full">
+          <SelectTrigger className={boardsSelectClasses}>
             <SelectValue placeholder="Choose board" />
           </SelectTrigger>
           <SelectContent>
+            {errorGettingBoards && (
+              <SelectItem disabled value={errorGettingBoards}>
+                {errorGettingBoards}
+              </SelectItem>
+            )}
             {boards.map((b) => (
               <SelectItem
                 key={`board-choice-item-${b.path}`}

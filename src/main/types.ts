@@ -26,6 +26,18 @@ export type BoardStd = {
   text: string;
 };
 
+export type FolderItem = {
+  name: string;
+  path: string;
+  isDir: boolean;
+  children?: FolderItem[];
+};
+
+export type ReadFolderResponse = {
+  folderPath: string;
+  tree: FolderItem[];
+};
+
 export type PortInfo = {
   path: string;
   manufacturer: string | undefined;
@@ -43,6 +55,7 @@ export interface RendererToMainMethods {
   ) => MainMethodResponse<boolean>;
   resetBoard: (path: string) => MainMethodResponse<boolean>;
   disconnectBoard: () => MainMethodResponse<boolean>;
+  pickSourceFolder: () => MainMethodResponse<ReadFolderResponse>;
 }
 
 export interface MainToRendererEvents {
