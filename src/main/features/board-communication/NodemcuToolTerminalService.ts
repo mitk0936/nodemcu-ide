@@ -1,50 +1,42 @@
 import { EventEmitter } from "events";
-import { spawn, ChildProcessWithoutNullStreams } from "child_process";
-import path from "path";
-import { fileURLToPath } from "url";
-import { PortConnection, MainToRendererEvents } from "../../../types.js";
+import { PortConnection } from "../../types.js";
 import readline from "readline";
+import { ChildProcess } from "child_process";
+import { NodemcuToolFacade } from "./NodemcuToolFacade.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const nodemcuToolPath = path.resolve(
-  __dirname,
-  "../../../../",
-  "node_modules",
-  ".bin",
-  process.platform === "win32" ? "nodemcu-tool.cmd" : "nodemcu-tool"
-);
-
+/**
+ * Service that abstracts the terminal stdio with nodemcu boards.
+ * Exposed methods for:
+ *  - connect
+ *  - disconnect
+ * Parses output and produces event via the NodemcuToolConnectionService.eventEmitter
+ */
 class NodemcuToolConnectionService {
   private connection: PortConnection | null = null;
-  private terminalProcess: ChildProcessWithoutNullStreams | null = null;
+  private terminalProcess: ChildProcess | null = null;
   private readline: readline.Interface | null = null;
 
+  // TODO: use typed event emitter
   public eventEmitter = new EventEmitter();
 
-  async connect(path: string, baudRate: number = 9600) {
+  async connect(connectionPath: string, baudRate: number = 9600) {
     // Disconnect if already connected
     if (this.terminalProcess) {
       await this.disconnect();
     }
 
-    this.connection = { path, baudRate };
-
+    this.connection = { path: connectionPath, baudRate };
     const connectionStarted: PortConnection = { ...this.connection };
 
     console.log("🔌 Spawning nodemcu-tool terminal...");
 
-    this.terminalProcess = spawn(nodemcuToolPath, [
-      "terminal",
-      "--port",
-      path,
-      "--baud",
-      baudRate.toString(),
-    ]);
+    this.terminalProcess = NodemcuToolFacade.terminal(
+      connectionPath,
+      baudRate.toString()
+    );
 
     this.readline = readline.createInterface({
-      input: this.terminalProcess.stdout,
+      input: this.terminalProcess.stdout!,
       crlfDelay: Infinity,
     });
 
@@ -56,7 +48,7 @@ class NodemcuToolConnectionService {
       });
     });
 
-    this.terminalProcess.stderr.on("data", (data: Buffer) => {
+    this.terminalProcess.stderr!.on("data", (data: Buffer) => {
       const error = data.toString().trim();
       console.error("⚠️ stderr:", error);
       this.eventEmitter.emit("portErrorOccured", {
@@ -87,7 +79,7 @@ class NodemcuToolConnectionService {
       return;
     }
 
-    this.terminalProcess.stdin.write(data + "\n", (err) => {
+    this.terminalProcess.stdin!.write(data + "\n", (err) => {
       if (err) {
         console.error("❌ Write error:", err.message);
       }

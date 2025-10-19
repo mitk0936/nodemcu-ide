@@ -18,8 +18,6 @@ import type { PortConnection } from "src/main/types";
 import { useResetBoard } from "../hooks/useResetBoard";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { openSerialPort } from "../handlers/connectToBoard";
-import { connectAndLog } from "../handlers/connectToBoardEsptool";
 
 export default function BoardActionsContainer() {
   const { toast } = useToast();
@@ -99,10 +97,9 @@ export default function BoardActionsContainer() {
   return (
     <>
       <div className="mb-2">
-        <button onClick={() => connectAndLog().then(console.log)}>
-          Connect Test
-        </button>
-        <Label htmlFor="board">Board</Label>
+        <Label htmlFor="board" className="pl-1">
+          Connect Board
+        </Label>
         <Select
           name="board"
           value={selectedBoardPath || ""}

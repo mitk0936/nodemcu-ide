@@ -1,46 +1,50 @@
-import { app, protocol } from "electron";
+import { app, protocol, BrowserWindow } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BrowserWindow } from "electron";
 import { readFile } from "node:fs/promises";
 import { lookup as getMimeType } from "mime-types";
-import { existsSync } from "node:fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// register custom protocol
 protocol.registerSchemesAsPrivileged([
-  { scheme: "app", privileges: { secure: true, standard: true } },
+  {
+    scheme: "app",
+    privileges: { secure: true, standard: true },
+  },
 ]);
 
 let iconPath: string;
 
-if (app.isPackaged) {
-  iconPath = path.join(process.resourcesPath, "build", "icons", "256x256.png");
+if (!app.isPackaged) {
+  // Dev: use raw ico from repo (better than PNG on Windows)
+  iconPath = path.resolve(__dirname, "../../../build/icon.ico");
 } else {
-  // Example: if __dirname is <repo>/dist-electron/main/features/browser-init
-  iconPath = path.resolve(__dirname, "../../build/icons/256x256.png");
+  if (process.platform === "win32") {
+    // Installed app: use bundled ico from extraResources
+    iconPath = path.join(process.resourcesPath, "icons", "icon.ico");
+  } else if (process.platform === "linux") {
+    iconPath = path.join(process.resourcesPath, "icons", "256x256.png");
+  } else if (process.platform === "darwin") {
+    // macOS: dock icon
+    app?.dock?.setIcon(path.join(process.resourcesPath, "icons", "icon.icns"));
+  }
 }
 
 export const createWindow = async () => {
+  // custom protocol handler
   protocol.handle("app", async (request) => {
     try {
       const url = new URL(request.url);
-      let filePath = url.pathname;
-
-      // Remove leading slash
-      filePath = filePath.replace(/^\/+/, "");
-
-      // Default to index.html for root path or just '-'
-      if (filePath === "" || filePath === "-") {
-        filePath = "index.html";
-      }
+      let filePath = url.pathname.replace(/^\/+/, "");
+      if (filePath === "" || filePath === "-") filePath = "index.html";
 
       const fullPath = path.join(__dirname, "../../../dist", filePath);
       const data = await readFile(fullPath);
       const contentType = getMimeType(fullPath) || "text/plain";
 
-      return new Response(data, {
+      return new Response(data as any, {
         headers: { "Content-Type": contentType },
       });
     } catch (err) {
@@ -51,67 +55,19 @@ export const createWindow = async () => {
     }
   });
 
+  // main window
   const win = new BrowserWindow({
     width: 1000,
     height: 800,
+    icon: iconPath, // 👈 ensures taskbar icon on Windows
     webPreferences: {
       preload: path.join(__dirname, "../../preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
     },
-    icon: iconPath,
   });
-
-  win.webContents.session.on(
-    "select-serial-port",
-    (event, portList, webContents, callback) => {
-      // Add listeners to handle ports being added or removed before the callback for `select-serial-port`
-      // is called.
-      win.webContents.session.on("serial-port-added", (event, port) => {
-        console.log("serial-port-added FIRED WITH", port);
-        // Optionally update portList to add the new port
-      });
-
-      win.webContents.session.on("serial-port-removed", (event, port) => {
-        console.log("serial-port-removed FIRED WITH", port);
-        // Optionally update portList to remove the port
-      });
-
-      console.log(portList);
-
-      const ports = portList.filter((p) => Boolean(p.productId));
-
-      event.preventDefault();
-      if (ports && ports.length > 0) {
-        callback(ports[0].portId);
-      } else {
-        // eslint-disable-next-line n/no-callback-literal
-        callback(""); // Could not find any matching devices
-      }
-    }
-  );
-
-  win.webContents.session.setDevicePermissionHandler((details) => {
-    if (details.deviceType === "serial") {
-      return true;
-    }
-
-    return false;
-  });
-
-  win.webContents.session.setPermissionCheckHandler(
-    (__webContents, permission, requestingOrigin, details) => {
-      return permission === "serial";
-      return Boolean(
-        (permission === "serial" && details.securityOrigin === "app://-") ||
-          (!app.isPackaged &&
-            requestingOrigin === process.env.VITE_DEV_SERVER_URL)
-      );
-    }
-  );
 
   win.loadURL(process.env.VITE_DEV_SERVER_URL || "app://-");
-
   return win;
 };

@@ -1,0 +1,31 @@
+{
+  "name": "nodemcu-tool-binary",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "nodemcu-tool": "./index.js"
+  },
+  "scripts": {
+    "build:win": "pkg . --targets node18-win-x64 --output dist/nodemcu-tool.exe",
+    "build": "npm run build:win",
+    "rebuild:serialport": "npm rebuild @serialport/bindings --target=18.0.0 --runtime=node",
+    "postinstall": "npm run rebuild:serialport"
+  },
+  "pkg": {
+    "scripts": [
+      "index.js",
+      "node_modules/nodemcu-tool/bin/nodemcu-tool.js"
+    ],
+    "assets": [
+      "node_modules/@serialport/bindings/build/Release/bindings.node"
+    ],
+    "outputPath": "dist"
+  },
+  "dependencies": {
+    "nodemcu-tool": "^3.2.1",
+    "serialport": "^13.0.0"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  }
+}

@@ -5,8 +5,18 @@ export function ipcMainHandle<ActionKey extends keyof RendererToMainMethods>(
   actionKey: ActionKey,
   handler: RendererToMainMethods[ActionKey]
 ) {
-  // @ts-expect-error
-  ipcMain.handle(actionKey, (_, ...args) => handler(...args));
+  ipcMain.handle(actionKey, (_, ...args) => {
+    try {
+      // @ts-expect-error Handle all actions, no need of types here
+      return handler(...args);
+    } catch {
+      // TODO: add proper error logging
+      return {
+        error: "Unknown failure",
+        data: null,
+      };
+    }
+  });
 }
 
 export function ipcMainSend<EventName extends keyof MainToRendererEvents>(
