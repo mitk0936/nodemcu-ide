@@ -11,7 +11,9 @@
     "dev": "concurrently \"vite\" \"npm:dev:main\"",
     "dev:main": "concurrently \"npm run build:main:watch\" \"wait-on http://localhost:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electronmon --inspect=9229 dist-electron/main.js --watch dist-electron build\"",
     "build": "npm run build:main && vite build && electron-builder",
-    "postbuild": "copy build\\icon.ico dist\\win-unpacked\\resources\\icon.ico",
+    "postbuild": "npm run postbuild:copy-icon && npm run postbuild:sign",
+    "postbuild:sign": "node scripts/fake-sign.js",
+    "postbuild:copy-icon": "copy build\\icon.ico dist\\win-unpacked\\resources\\icon.ico",
     "build:nodemcu-tool": "npm run build -w packages/nodemcu-tool-binary",
     "build:main": "tsc -p tsconfig.electron.json && tsc -p tsconfig.preload.json",
     "build:main:watch": "tsc -p tsconfig.electron.json --watch | tsc -p tsconfig.preload.json --watch",
@@ -25,14 +27,13 @@
       "output": "dist",
       "buildResources": "build"
     },
-    "icon": "build/icon",
+    "icon": "build/icon.ico",
     "files": [
       "dist/**/*",
       "dist-electron/**/*"
     ],
     "win": {
-      "icon": "build/icon",
-      "signAndEditExecutable": true
+      "icon": "build/icon.ico"
     },
     "extraResources": [
       {

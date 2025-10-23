@@ -25,7 +25,7 @@ export class NodemcuToolFacade {
     }
 
     // Prod: after electron-builder copies from extraResources
-    return process.resourcesPath, "extra-tools", "nodemcu-tool.exe";
+    return join(process.resourcesPath, "extra-tools", "nodemcu-tool.exe");
   }
 
   static devices() {

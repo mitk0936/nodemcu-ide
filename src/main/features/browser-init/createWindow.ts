@@ -1,73 +1,114 @@
+/**
+ * Main window creation & custom protocol setup for the NodeMCU IDE.
+ * ---------------------------------------------------------------
+ * Responsibilities:
+ *  - Register a secure "app://" protocol to load local files in production.
+ *  - Serve static assets from /dist using this protocol.
+ *  - Configure platform-specific window icons.
+ *  - Create and load the main BrowserWindow instance.
+ */
+
 import { app, protocol, BrowserWindow } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFile } from "node:fs/promises";
 import { lookup as getMimeType } from "mime-types";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// -----------------------------------------------------------------------------
+// 🧭 Resolve runtime paths
+// -----------------------------------------------------------------------------
 
-// register custom protocol
+// __dirname is not available in ES modules; we reconstruct it manually.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// -----------------------------------------------------------------------------
+// 🔒 Register secure custom scheme before app ready
+// -----------------------------------------------------------------------------
+
 protocol.registerSchemesAsPrivileged([
   {
-    scheme: "app",
-    privileges: { secure: true, standard: true },
+    scheme: "app", // we’ll serve app://index.html and other static files
+    privileges: {
+      secure: true, // ensures https-like security context
+      standard: true, // allows relative paths, e.g. <link href="app://style.css">
+    },
   },
 ]);
 
-let iconPath: string;
+// -----------------------------------------------------------------------------
+// 🪟 Main window factory
+// -----------------------------------------------------------------------------
 
-if (!app.isPackaged) {
-  // Dev: use raw ico from repo (better than PNG on Windows)
-  iconPath = path.resolve(__dirname, "../../../build/icon.ico");
-} else {
-  if (process.platform === "win32") {
-    // Installed app: use bundled ico from extraResources
-    iconPath = path.join(process.resourcesPath, "icons", "icon.ico");
-  } else if (process.platform === "linux") {
-    iconPath = path.join(process.resourcesPath, "icons", "256x256.png");
-  } else if (process.platform === "darwin") {
-    // macOS: dock icon
-    app?.dock?.setIcon(path.join(process.resourcesPath, "icons", "icon.icns"));
-  }
-}
-
-export const createWindow = async () => {
-  // custom protocol handler
+export const createWindow = async (): Promise<BrowserWindow> => {
+  /**
+   * ---------------------------------------------------------------------------
+   * 1. Custom protocol handler
+   * ---------------------------------------------------------------------------
+   * This replaces file:// URLs with app:// URLs in production.
+   * It allows loading local files (e.g. index.html, JS bundles, assets)
+   * without exposing your filesystem paths.
+   */
   protocol.handle("app", async (request) => {
     try {
+      // Convert the request URL to a valid local file path.
       const url = new URL(request.url);
-      let filePath = url.pathname.replace(/^\/+/, "");
-      if (filePath === "" || filePath === "-") filePath = "index.html";
+      const relativePath = url.pathname.replace(/^\/+/, "") || "index.html";
+      const fullPath = path.join(__dirname, "../../../dist", relativePath);
 
-      const fullPath = path.join(__dirname, "../../../dist", filePath);
-      const data = await readFile(fullPath);
-      const contentType = getMimeType(fullPath) || "text/plain";
+      // Read file contents and detect correct MIME type.
+      const fileData = await readFile(fullPath);
+      const mimeType = getMimeType(fullPath) || "text/plain";
 
-      return new Response(data as any, {
-        headers: { "Content-Type": contentType },
+      // Return a standard Response object (supported in modern Electron).
+      return new Response(fileData as BodyInit, {
+        headers: { "Content-Type": mimeType },
       });
-    } catch (err) {
-      console.error("Protocol handler error:", err);
-      return new Response("Not found: " + (err as any).message, {
-        status: 404,
-      });
+    } catch (err: unknown) {
+      console.error("⚠️ Protocol handler error:", err);
+      return new Response(`Not found: ${err}`, { status: 404 });
     }
   });
 
-  // main window
+  /**
+   * ---------------------------------------------------------------------------
+   * 2. Platform-specific icon setup (currently implemented only for windows)
+   * ---------------------------------------------------------------------------
+   * Each OS uses different icon formats and locations:
+   *  - Windows → .ico (taskbar & window)
+   */
+
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, "icons", "icon.ico")
+    : path.join(__dirname, "../../build/icon.ico");
+
+  /**
+   * ---------------------------------------------------------------------------
+   * 3. BrowserWindow configuration
+   * ---------------------------------------------------------------------------
+   * We isolate the renderer for security, preload a safe API bridge,
+   * and specify platform icon (where supported).
+   */
   const win = new BrowserWindow({
     width: 1000,
     height: 800,
-    icon: iconPath, // 👈 ensures taskbar icon on Windows
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, "../../preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
+      contextIsolation: true, // prevent direct access to Node APIs
+      nodeIntegration: false, // disable require() in renderer
+      sandbox: true, // run renderer in a sandboxed environment
     },
   });
 
-  win.loadURL(process.env.VITE_DEV_SERVER_URL || "app://-");
+  /**
+   * ---------------------------------------------------------------------------
+   * 4. Load target URL
+   * ---------------------------------------------------------------------------
+   * In dev → load the Vite dev server for hot reload.
+   * In prod → load from the custom app:// protocol.
+   */
+  const entryURL = process.env.VITE_DEV_SERVER_URL || "app://index.html";
+  await win.loadURL(entryURL);
+
   return win;
 };
