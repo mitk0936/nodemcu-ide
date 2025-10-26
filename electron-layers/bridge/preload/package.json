@@ -1,0 +1,24 @@
+{
+  "name": "@nodemcu-ide/electron-bridge-preload",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/preload.js",
+  "exports": {
+    ".": {
+      "import": "./dist/preload.js",
+      "require": "./dist/preload.js",
+      "types": "./dist/preload.d.ts"
+    }
+  },
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@nodemcu-ide/electron-bridge-types": "*"
+  },
+  "peerDependencies": {
+    "electron": ">=35",
+    "typescript": ">=5"
+  }
+}

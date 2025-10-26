@@ -1,160 +1,265 @@
-# NodeMCU IDE
+# 🧠 NodeMCU IDE — Electron Monorepo
 
-A lightweight and user-friendly IDE for developing and deploying NodeMCU (ESP8266/ESP32) projects.
+A desktop IDE built with **Electron**, **Vite**, and **TypeScript**, designed for NodeMCU (ESP8266/ESP32) boards.  
+This project uses a **monorepo structure** with modular Electron layers and shared packages.
 
-## Features
+---
 
-- Code editor with syntax highlighting for Lua and other supported languages.
-- Serial communication for uploading and debugging code.
-- Project management for organizing multiple scripts.
-- Cross-platform support.
+## 📁 Project Structure
 
-## Setup
+```
+.
+├─ electron-layers/
+│  ├─ main/          # Electron main process (window creation, protocol, packaging)
+│  ├─ bridge/
+│  │   ├─ preload/   # Context bridge (CJS preload entry)
+│  │   └─ types/     # Shared preload types/interfaces
+│  └─ renderer/      # React + Vite frontend (renderer process)
+│
+├─ packages/
+│  ├─ nodemcu-tool-binary/  # Pre-built Node.js binary wrapped via pkg
+│  └─ ui/ / types (optional shared packages)
+│
+├─ .assets/          # Application icons, metadata
+└─ package.json      # Root workspace + electron-builder config
+```
 
-### Prerequisites
+---
 
-- Node.js (v14 or later)
-- npm (Node Package Manager)
-- A NodeMCU development board (ESP8266/ESP32)
+## ⚙️ Development Flow
 
-### Installation
-
-1. Clone the repository:
+All workspace packages have their own `dev` scripts.  
+The root `dev` command orchestrates everything:
 
 ```bash
-git clone https://github.com/yourusername/NodemcuIDE.git
-cd NodemcuIDE
+npm run dev
 ```
 
-2. Install dependencies:
+This runs:
 
-```bash
-npm install
-```
+- Vite dev server for the renderer
+- TypeScript watchers for main & preload
+- Electron live-reload (`electronmon`)
+- Waits for port 5173 before launching the app
 
-3. Start the application:
-
-```bash
-npm start
-```
-
-4. Open your browser and navigate to `http://localhost:3000`.
-
-## Code Structure
-
-```
-NodemcuIDE/
-├── src/
-│   ├── components/       # Reusable UI components
-│   ├── services/         # Backend communication and utilities
-│   ├── styles/           # CSS and styling files
-│   ├── App.js            # Main application component
-│   └── index.js          # Entry point of the application
-├── public/               # Static assets
-├── package.json          # Project metadata and dependencies
-└── README.md             # Project documentation
-```
-
-## Electron and Renderer Setup
-
-### Setting Up Electron
-
-1. Install Electron as a development dependency:
-
-```bash
-npm install electron --save-dev
-```
-
-2. Add a `main.js` file in the root directory for the Electron main process:
-
-```javascript
-const { app, BrowserWindow } = require("electron");
-
-let mainWindow;
-
-app.on("ready", () => {
-  mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-    },
-  });
-
-  mainWindow.loadURL("http://localhost:3000");
-});
-```
-
-3. Update the `package.json` file to include a start script for Electron:
+### Root `package.json`
 
 ```json
 "scripts": {
-  "start": "react-scripts start",
-  "electron": "electron ."
+  "dev": "concurrently \"npm run dev:workspaces\" \"wait-on http://localhost:5173 && npm run dev:electron\"",
+  "dev:workspaces": "npm run dev -w electron-layers/renderer | npm run dev -w electron-layers/bridge/preload | npm run dev -w electron-layers/bridge/types | npm run dev -w electron-layers/main",
+  "dev:electron": "cross-env NODE_ENV=development VITE_DEV_SERVER_URL=http://localhost:5173 electronmon --inspect=9229 electron-layers/main/dist/main.js --watch electron-layers/main/dist",
+  "build": "npm run build --workspaces --if-present && electron-builder"
 }
 ```
 
-### Setting Up the Renderer Process
+---
 
-1. Ensure the `webPreferences` in `main.js` has `nodeIntegration` enabled for the renderer process.
+## 🧩 Electron Layer Details
 
-2. Use Node.js modules in your React components as needed. For example:
+### **Main process** (`electron-layers/main`)
 
-```javascript
-const fs = require("fs");
+Handles:
 
-function ExampleComponent() {
-  const readFile = () => {
-    fs.readFile("example.txt", "utf8", (err, data) => {
-      if (err) {
-        console.error(err);
-        return;
-      }
-      console.log(data);
-    });
-  };
+- Custom secure `app://` protocol
+- Production asset loading
+- `BrowserWindow` creation
+- Dynamic preload path resolution
 
-  return <button onClick={readFile}>Read File</button>;
+**Preload path resolution (works for dev & prod):**
+
+```ts
+import path from "node:path";
+import { createRequire } from "node:module";
+import { app } from "electron";
+
+const require = createRequire(import.meta.url);
+
+const preloadPath = app.isPackaged
+  ? path.join(
+      process.resourcesPath,
+      "app.asar",
+      "electron-layers",
+      "bridge",
+      "preload",
+      "dist",
+      "preload.js"
+    )
+  : require.resolve("@nodemcu-ide/electron-bridge-preload");
+```
+
+---
+
+### **Preload bridge** (`electron-layers/bridge/preload`)
+
+- Written in TypeScript, compiled as **CommonJS**.
+- Exposes a secure IPC API via `contextBridge.exposeInMainWorld`.
+- Depends on types from `electron-layers/bridge/types`.
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "outDir": "dist",
+    "declaration": true,
+    "strict": true
+  }
 }
-
-export default ExampleComponent;
 ```
 
-3. Run the application:
+---
 
-```bash
-npm run electron
+### **Renderer** (`electron-layers/renderer`)
+
+- React 19 + Vite 6 app.
+- Imports types and constants from other workspaces.
+- Uses standard `vite.config.ts` with `outDir: "dist"`.
+
+---
+
+## 🛠 Packaging & Build (electron-builder)
+
+The root uses `electron-builder` to produce `.exe` installers.
+
+### `package.json` (root excerpt)
+
+```json
+"main": "electron-layers/main/dist/main.js",
+"build": {
+  "appId": "com.nodemcu.ide",
+  "productName": "NodemcuIDE",
+  "directories": {
+    "output": "dist",
+    "buildResources": "build"
+  },
+  "files": [
+    "electron-layers/main/dist/**/*",
+    "electron-layers/renderer/dist/**/*",
+    "electron-layers/bridge/preload/dist/**/*",
+    "packages/**/*",
+    "node_modules/**/*",
+    "package.json"
+  ],
+  "extraResources": [
+    { "from": "./.assets", "to": "icons" },
+    { "from": "./packages/nodemcu-tool-binary/dist/nodemcu-tool.exe", "to": "extra-tools/nodemcu-tool.exe" },
+    { "from": "./node_modules/@serialport/bindings", "to": "node_modules/@serialport/bindings" }
+  ]
+}
 ```
 
-## Contributing
+### 🧩 Resource layout inside `dist/win-unpacked/resources`
 
-1. Fork the repository.
-2. Create a new branch:
-
-```bash
-git checkout -b feature-name
+```
+resources/
+├─ app.asar/                     ← main + preload + renderer code
+├─ extra-tools/
+│  └─ nodemcu-tool.exe           ← bundled NodeMCU CLI binary
+└─ icons/
+   └─ icon.ico
 ```
 
-3. Commit your changes:
+---
 
-```bash
-git commit -m "Add feature-name"
+## ⚙️ The `nodemcu-tool-binary` Package
+
+Located in `packages/nodemcu-tool-binary`,  
+it builds a standalone CLI executable using **pkg**.
+
+### `package.json`
+
+```json
+{
+  "name": "@nodemcu-ide/nodemcu-tool-binary",
+  "version": "0.1.0",
+  "private": true,
+  "bin": { "nodemcu-tool": "./index.js" },
+  "scripts": {
+    "rebuild:serialport": "npm rebuild @serialport/bindings --target=18.0.0 --runtime=node",
+    "build:win": "npm run rebuild:serialport && pkg . --targets node18-win-x64 --output dist/nodemcu-tool.exe",
+    "build": "npm run build:win"
+  },
+  "pkg": {
+    "scripts": ["index.js", "node_modules/nodemcu-tool/bin/nodemcu-tool.js"],
+    "assets": ["node_modules/@serialport/bindings/**/*"],
+    "outputPath": "dist"
+  },
+  "dependencies": {
+    "nodemcu-tool": "^3.2.1",
+    "serialport": "^13.0.0"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  }
+}
 ```
 
-4. Push to the branch:
+**Purpose:**
 
-```bash
-git push origin feature-name
+- Ensures a stable, precompiled Node binary (Node 18 ABI) independent of Electron.
+- Avoids runtime rebuilds when Electron upgrades its embedded Node.
+
+---
+
+## 🧩 Executing the Binary from Electron
+
+```ts
+import { execFile } from "node:child_process";
+import { app } from "electron";
+import path from "node:path";
+
+const toolPath = app.isPackaged
+  ? path.join(process.resourcesPath, "extra-tools", "nodemcu-tool.exe")
+  : path.join(
+      __dirname,
+      "../../../packages/nodemcu-tool-binary/dist/nodemcu-tool.exe"
+    );
+
+execFile(toolPath, ["--help"], (err, stdout, stderr) => {
+  if (err) console.error(err);
+  else console.log(stdout || stderr);
+});
 ```
 
-5. Open a pull request.
+---
 
-## Quirks
+## 🧩 Preload Access Example
 
-In case of issues with serialport and mismatching versions
-Run: `npm rebuild @serialport/bindings --update-binary`
+From the renderer (React):
 
-## License
+```ts
+window.api.getBoards().then(({ data }) => console.log(data));
+window.api.on("serialData", (payload) => console.log("Serial:", payload.text));
+```
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+---
+
+## 🔒 Security Defaults
+
+- `contextIsolation: true`
+- `nodeIntegration: false`
+- `sandbox: true`
+- `preload` built as CommonJS
+- No filesystem exposure in renderer
+
+---
+
+## 🚀 Next Steps
+
+- [ ] Integrate Turborepo for caching & parallel builds
+- [ ] Add macOS/Linux builds of the CLI
+- [ ] Add E2E smoke test that spawns the `.exe`
+- [ ] Automate packaging in GitHub Actions
+
+---
+
+## 💡 Summary
+
+| Layer                   | Purpose                         | Build Target       |
+| ----------------------- | ------------------------------- | ------------------ |
+| **main**                | App lifecycle, window, protocol | ESM → CJS in ASAR  |
+| **bridge/preload**      | Secure IPC context bridge       | CJS                |
+| **bridge/types**        | Shared IPC interfaces           | ESM                |
+| **renderer**            | UI (Vite + React)               | ESM bundle         |
+| **nodemcu-tool-binary** | NodeMCU CLI executable          | pkg Node 18 binary |
