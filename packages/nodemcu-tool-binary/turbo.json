@@ -7,7 +7,7 @@
     },
     "build": {
       "dependsOn": ["build:serialport"],
-      "outputs": ["dist/**"]
+      "outputs": ["./dist/**"]
     }
   }
 }

@@ -6,7 +6,7 @@
       "outputs": ["dist/**"]
     },
     "dev": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "@nodemcu-ide/nodemcu-tool-binary#build"],
       "cache": false,
       "persistent": true
     }

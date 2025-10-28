@@ -26,7 +26,7 @@
     "react": "^19.1.0",
     "react-console-emulator": "^5.0.2",
     "react-dom": "^19.1.0",
-    "react-folder-tree": "^5.1.1",
+    "react-folder-tree": "*",
     "react-terminal": "^1.4.5",
     "tailwind-merge": "^3.3.0",
     "tailwind-scrollbar": "^3.1.0",

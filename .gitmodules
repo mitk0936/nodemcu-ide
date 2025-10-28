@@ -1,0 +1,3 @@
+[submodule "packages/react-folder-tree"]
+	path = packages/react-folder-tree
+	url = https://github.com/shunjizhan/react-folder-tree.git
