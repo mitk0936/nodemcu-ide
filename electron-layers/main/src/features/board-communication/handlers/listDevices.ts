@@ -1,5 +1,5 @@
 import { NodemcuToolFacade } from "../NodemcuToolFacade.js";
-import { RendererToMainMethods } from "../../../../../bridge/types/dist/index.js";
+import { RendererToMainMethods } from "@nodemcu-ide/electron-bridge-types";
 /**
  * Lists connected NodeMCU devices using the packaged CLI (JSON output).
  */

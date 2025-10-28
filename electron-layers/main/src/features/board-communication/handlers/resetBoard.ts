@@ -1,4 +1,4 @@
-import { RendererToMainMethods } from "../../../../../bridge/types/dist/index.js";
+import { RendererToMainMethods } from "@nodemcu-ide/electron-bridge-types";
 import { NodemcuToolFacade } from "../NodemcuToolFacade.js";
 
 type ResetBoardParams = {
