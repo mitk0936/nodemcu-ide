@@ -1,0 +1,14 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "dev": {
+      "dependsOn": ["@nodemcu-ide/nodemcu-tool-binary#build"],
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "tsc --watch",
+    "dev": "concurrently -k \"tsc --watch\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development RENDERER_DEV_SERVER=http://localhost:5173 electronmon --inspect-brk=9229 ./dist/main.js --watch ./dist\"",
     "build": "tsc"
   },
   "dependencies": {

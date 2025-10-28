@@ -17,6 +17,7 @@ export class NodemcuToolFacade {
       // Dev: use workspace build output
       return join(
         process.cwd(),
+        "../../",
         "packages",
         "nodemcu-tool-binary",
         "dist",

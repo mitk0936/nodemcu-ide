@@ -9,13 +9,10 @@
     "packages/*"
   ],
   "main": "electron-layers/main/dist/main.js",
+  "packageManager": "npm@10.9.3",
   "scripts": {
-    "dev": "concurrently \"npm run dev:workspaces\" \"wait-on http://localhost:5173 && npm run dev:electron\"",
-    "dev:workspaces": "npm run dev -w electron-layers/renderer | npm run dev -w electron-layers/bridge/preload | npm run dev -w electron-layers/bridge/types | npm run dev -w electron-layers/main",
-    "dev:electron": "cross-env NODE_ENV=development VITE_DEV_SERVER_URL=http://localhost:5173 electronmon --inspect=9229 electron-layers/main/dist/main.js --watch electron-layers/main/dist",
-    "build": "npm run build --workspaces --if-present && electron-builder",
-    "build:nodemcu-tool": "npm run build -w packages/nodemcu-tool-binary",
-    "lint": "eslint .",
+    "dev": "turbo run dev",
+    "build": "turbo run build --continue && electron-builder",
     "postinstall": "electron-builder install-app-deps"
   },
   "build": {
@@ -59,19 +56,13 @@
     ]
   },
   "devDependencies": {
-    "electron": "^35.x",
-    "electronmon": "^2.0.3",
-    "@eslint/js": "^9.25.0",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
+    "electron": "^35.x",
     "electron-builder": "^26.0.12",
-    "eslint": "^9.25.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.19",
-    "patch-package": "^8.0.1",
-    "png-to-ico": "^3.0.1",
+    "electronmon": "^2.0.3",
+    "turbo": "^2.5.8",
     "typescript": "~5.8.3",
-    "typescript-eslint": "^8.30.1",
     "wait-on": "^8.0.3"
   }
 }

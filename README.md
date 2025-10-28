@@ -1,265 +1,99 @@
-# 🧠 NodeMCU IDE — Electron Monorepo
+# NodeMCU IDE — Monorepo Overview
 
-A desktop IDE built with **Electron**, **Vite**, and **TypeScript**, designed for NodeMCU (ESP8266/ESP32) boards.  
-This project uses a **monorepo structure** with modular Electron layers and shared packages.
+## 🧩 Project Summary
+
+NodeMCU IDE is an **Electron + Vite + TypeScript** desktop application designed for developing, flashing, and interacting with **NodeMCU (ESP8266/ESP32)** boards. It provides an integrated environment for Lua-based development, firmware management, and serial communication — all packaged into a secure, sandboxed Electron runtime.
+
+The project follows a **multi-package monorepo** structure to separate responsibilities between Electron layers, UI, and tooling, ensuring scalability and efficient builds through **Turborepo**.
 
 ---
 
-## 📁 Project Structure
+## 🏗️ Monorepo Structure
 
 ```
-.
+root/
 ├─ electron-layers/
-│  ├─ main/          # Electron main process (window creation, protocol, packaging)
+│  ├─ main/                → Electron main process (window, app protocol, packaging)
 │  ├─ bridge/
-│  │   ├─ preload/   # Context bridge (CJS preload entry)
-│  │   └─ types/     # Shared preload types/interfaces
-│  └─ renderer/      # React + Vite frontend (renderer process)
+│  │  ├─ preload/          → Secure preload script, CommonJS context bridge
+│  │  └─ types/            → Shared TypeScript interfaces for IPC
+│  └─ renderer/            → React + Vite frontend (renderer process)
 │
 ├─ packages/
-│  ├─ nodemcu-tool-binary/  # Pre-built Node.js binary wrapped via pkg
-│  └─ ui/ / types (optional shared packages)
+│  ├─ nodemcu-tool-binary/ → Prebuilt Node 18 binary wrapping the nodemcu-tool CLI
+│  └─ ui/ (optional)       → Shared UI components using Tailwind + ShadCN
 │
-├─ .assets/          # Application icons, metadata
-└─ package.json      # Root workspace + electron-builder config
+└─ turbo.json              → Defines build and dev pipelines, dependencies between layers
 ```
+
+Each layer is intentionally isolated:
+
+- **Main** handles Electron app lifecycle and window creation.
+- **Preload** bridges the secure sandboxed renderer with Node APIs.
+- **Renderer** contains the React UI and communicates via IPC.
+- **Types** defines shared contracts between main/preload/renderer.
+- **nodemcu-tool-binary** encapsulates the CLI tooling and native bindings.
 
 ---
 
-## ⚙️ Development Flow
+## ⚙️ Build and Dev Commands
 
-All workspace packages have their own `dev` scripts.  
-The root `dev` command orchestrates everything:
+The repository uses **Turborepo** to orchestrate builds and manage inter-package dependencies.
 
-```bash
-npm run dev
+### Common scripts
+
+- `dev` — Starts all layers in watch mode. Depends on the binary being built first.
+- `build` — Builds all packages and outputs distributable artifacts.
+- `build:serialport` — Rebuilds native serialport bindings for Node 18.
+
+Each Electron package (`main`, `renderer`, `preload`, `types`) defines its own `dev` and `build` scripts, which are coordinated through Turbo’s dependency graph. The **binary package** acts as a prerequisite for all others.
+
+### Dependency flow
+
+```
+renderer → preload → types → nodemcu-tool-binary
+main     → preload → types → nodemcu-tool-binary
 ```
 
-This runs:
-
-- Vite dev server for the renderer
-- TypeScript watchers for main & preload
-- Electron live-reload (`electronmon`)
-- Waits for port 5173 before launching the app
-
-### Root `package.json`
-
-```json
-"scripts": {
-  "dev": "concurrently \"npm run dev:workspaces\" \"wait-on http://localhost:5173 && npm run dev:electron\"",
-  "dev:workspaces": "npm run dev -w electron-layers/renderer | npm run dev -w electron-layers/bridge/preload | npm run dev -w electron-layers/bridge/types | npm run dev -w electron-layers/main",
-  "dev:electron": "cross-env NODE_ENV=development VITE_DEV_SERVER_URL=http://localhost:5173 electronmon --inspect=9229 electron-layers/main/dist/main.js --watch electron-layers/main/dist",
-  "build": "npm run build --workspaces --if-present && electron-builder"
-}
-```
+Turborepo ensures that if the binary package has not changed, its build is cached — preventing redundant rebuilds across Electron layers.
 
 ---
 
-## 🧩 Electron Layer Details
+## 🧰 NodeMCU Tool Packaging Strategy
 
-### **Main process** (`electron-layers/main`)
+The **`nodemcu-tool-binary`** package wraps the `nodemcu-tool` CLI using `pkg`, producing a **Node 18-compatible executable** (`nodemcu-tool.exe`) embedded directly into the Electron build. This approach was chosen for:
 
-Handles:
+1. **Portability** — The binary runs within Electron without requiring native rebuilds or system-wide Node installation.
+2. **Version control** — The Node version is pinned (Node 18) to match Electron’s runtime compatibility.
+3. **Reduced native friction** — SerialPort bindings are rebuilt only once via a dedicated task (`build:serialport`), not on every install.
+4. **Cross-platform consistency** — The binary can be packaged for Windows/macOS/Linux without altering the Electron main process.
 
-- Custom secure `app://` protocol
-- Production asset loading
-- `BrowserWindow` creation
-- Dynamic preload path resolution
-
-**Preload path resolution (works for dev & prod):**
-
-```ts
-import path from "node:path";
-import { createRequire } from "node:module";
-import { app } from "electron";
-
-const require = createRequire(import.meta.url);
-
-const preloadPath = app.isPackaged
-  ? path.join(
-      process.resourcesPath,
-      "app.asar",
-      "electron-layers",
-      "bridge",
-      "preload",
-      "dist",
-      "preload.js"
-    )
-  : require.resolve("@nodemcu-ide/electron-bridge-preload");
-```
+During Electron packaging, the binary is included as part of `extraResources` to ensure it ships inside the app bundle, alongside its `@serialport/bindings` artifacts.
 
 ---
 
-### **Preload bridge** (`electron-layers/bridge/preload`)
+## 🪄 Development Philosophy
 
-- Written in TypeScript, compiled as **CommonJS**.
-- Exposes a secure IPC API via `contextBridge.exposeInMainWorld`.
-- Depends on types from `electron-layers/bridge/types`.
+This project emphasizes:
 
-```json
-{
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "CommonJS",
-    "outDir": "dist",
-    "declaration": true,
-    "strict": true
-  }
-}
-```
+- **Isolation of layers** — renderer, preload, main, and tooling are decoupled for clarity and testing.
+- **Incremental builds** — Turbo + TypeScript incremental compilation with per-package `.tsbuildinfo`.
+- **Security** — strict `contextIsolation`, `sandbox`, and `nodeIntegration: false`.
+- **Scalability** — packages can evolve independently, supporting features like firmware flashing, live serial output, or future cloud sync.
 
 ---
 
-### **Renderer** (`electron-layers/renderer`)
+## 🧠 Future Enhancements
 
-- React 19 + Vite 6 app.
-- Imports types and constants from other workspaces.
-- Uses standard `vite.config.ts` with `outDir: "dist"`.
-
----
-
-## 🛠 Packaging & Build (electron-builder)
-
-The root uses `electron-builder` to produce `.exe` installers.
-
-### `package.json` (root excerpt)
-
-```json
-"main": "electron-layers/main/dist/main.js",
-"build": {
-  "appId": "com.nodemcu.ide",
-  "productName": "NodemcuIDE",
-  "directories": {
-    "output": "dist",
-    "buildResources": "build"
-  },
-  "files": [
-    "electron-layers/main/dist/**/*",
-    "electron-layers/renderer/dist/**/*",
-    "electron-layers/bridge/preload/dist/**/*",
-    "packages/**/*",
-    "node_modules/**/*",
-    "package.json"
-  ],
-  "extraResources": [
-    { "from": "./.assets", "to": "icons" },
-    { "from": "./packages/nodemcu-tool-binary/dist/nodemcu-tool.exe", "to": "extra-tools/nodemcu-tool.exe" },
-    { "from": "./node_modules/@serialport/bindings", "to": "node_modules/@serialport/bindings" }
-  ]
-}
-```
-
-### 🧩 Resource layout inside `dist/win-unpacked/resources`
-
-```
-resources/
-├─ app.asar/                     ← main + preload + renderer code
-├─ extra-tools/
-│  └─ nodemcu-tool.exe           ← bundled NodeMCU CLI binary
-└─ icons/
-   └─ icon.ico
-```
+- Add Turborepo caching for `electron-builder` postinstall tasks.
+- Integrate shared UI library (`packages/ui`) with Tailwind + ShadCN.
+- Support macOS/Linux binary builds via `pkg` multi-target outputs.
+- Add optional build caching for the SerialPort binding rebuild step.
 
 ---
 
-## ⚙️ The `nodemcu-tool-binary` Package
+## 🧾 Summary
 
-Located in `packages/nodemcu-tool-binary`,  
-it builds a standalone CLI executable using **pkg**.
+NodeMCU IDE demonstrates a clean, maintainable architecture for Electron + TypeScript applications. It balances developer convenience and runtime safety while efficiently handling native dependencies through a modular, cache-friendly Turborepo setup.
 
-### `package.json`
-
-```json
-{
-  "name": "@nodemcu-ide/nodemcu-tool-binary",
-  "version": "0.1.0",
-  "private": true,
-  "bin": { "nodemcu-tool": "./index.js" },
-  "scripts": {
-    "rebuild:serialport": "npm rebuild @serialport/bindings --target=18.0.0 --runtime=node",
-    "build:win": "npm run rebuild:serialport && pkg . --targets node18-win-x64 --output dist/nodemcu-tool.exe",
-    "build": "npm run build:win"
-  },
-  "pkg": {
-    "scripts": ["index.js", "node_modules/nodemcu-tool/bin/nodemcu-tool.js"],
-    "assets": ["node_modules/@serialport/bindings/**/*"],
-    "outputPath": "dist"
-  },
-  "dependencies": {
-    "nodemcu-tool": "^3.2.1",
-    "serialport": "^13.0.0"
-  },
-  "devDependencies": {
-    "pkg": "^5.8.1"
-  }
-}
-```
-
-**Purpose:**
-
-- Ensures a stable, precompiled Node binary (Node 18 ABI) independent of Electron.
-- Avoids runtime rebuilds when Electron upgrades its embedded Node.
-
----
-
-## 🧩 Executing the Binary from Electron
-
-```ts
-import { execFile } from "node:child_process";
-import { app } from "electron";
-import path from "node:path";
-
-const toolPath = app.isPackaged
-  ? path.join(process.resourcesPath, "extra-tools", "nodemcu-tool.exe")
-  : path.join(
-      __dirname,
-      "../../../packages/nodemcu-tool-binary/dist/nodemcu-tool.exe"
-    );
-
-execFile(toolPath, ["--help"], (err, stdout, stderr) => {
-  if (err) console.error(err);
-  else console.log(stdout || stderr);
-});
-```
-
----
-
-## 🧩 Preload Access Example
-
-From the renderer (React):
-
-```ts
-window.api.getBoards().then(({ data }) => console.log(data));
-window.api.on("serialData", (payload) => console.log("Serial:", payload.text));
-```
-
----
-
-## 🔒 Security Defaults
-
-- `contextIsolation: true`
-- `nodeIntegration: false`
-- `sandbox: true`
-- `preload` built as CommonJS
-- No filesystem exposure in renderer
-
----
-
-## 🚀 Next Steps
-
-- [ ] Integrate Turborepo for caching & parallel builds
-- [ ] Add macOS/Linux builds of the CLI
-- [ ] Add E2E smoke test that spawns the `.exe`
-- [ ] Automate packaging in GitHub Actions
-
----
-
-## 💡 Summary
-
-| Layer                   | Purpose                         | Build Target       |
-| ----------------------- | ------------------------------- | ------------------ |
-| **main**                | App lifecycle, window, protocol | ESM → CJS in ASAR  |
-| **bridge/preload**      | Secure IPC context bridge       | CJS                |
-| **bridge/types**        | Shared IPC interfaces           | ESM                |
-| **renderer**            | UI (Vite + React)               | ESM bundle         |
-| **nodemcu-tool-binary** | NodeMCU CLI executable          | pkg Node 18 binary |
+The key design decision — **packaging `nodemcu-tool` as a prebuilt binary** — minimizes rebuilds, simplifies distribution, and allows the Electron app to execute CLI logic securely inside its sandboxed environment.

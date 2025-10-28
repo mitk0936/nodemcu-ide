@@ -25,7 +25,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "incremental": true
   },
   "include": ["./src", "./src/global.d.ts"]
 }

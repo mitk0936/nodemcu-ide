@@ -125,7 +125,7 @@ export const createWindow = async (): Promise<BrowserWindow> => {
    * In dev → load the Vite dev server for hot reload.
    * In prod → load from the custom app:// protocol.
    */
-  const entryURL = process.env.VITE_DEV_SERVER_URL || "app://index.html";
+  const entryURL = process.env.RENDERER_DEV_SERVER || "app://index.html";
   await win.loadURL(entryURL);
 
   return win;
